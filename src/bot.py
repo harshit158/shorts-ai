@@ -1,8 +1,8 @@
 import os
 from dotenv import load_dotenv
 load_dotenv()
-
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+from src.quiz import generate_quiz
+from src.settings import settings
 
 from telegram import Update
 from telegram.ext import (
@@ -27,8 +27,16 @@ async def command_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def command_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("Running LLM for quiz command...")
+    
     await update.message.reply_text(
-        "Quiz command is not yet implemented."
+        "Generating a quiz question for you..."
+    )
+    
+    quiz_str = generate_quiz()
+    await update.message.reply_text(
+        quiz_str,
+        parse_mode="HTML"
     )
     
 # menu_conv = ConversationHandler(
@@ -50,7 +58,7 @@ async def command_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
-    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    app = ApplicationBuilder().token(settings.telegram_bot_token).build()
 
     app.add_handler(CommandHandler("start", command_start))
     app.add_handler(CommandHandler("help", command_help))
