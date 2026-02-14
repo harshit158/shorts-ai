@@ -1,6 +1,7 @@
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 from src.settings import settings
+from src.types import LLMProvider
 
 llm_ollama = ChatOllama(
     model="llama3.1:8b",
@@ -14,3 +15,11 @@ llm_openai = ChatOpenAI(
     max_retries=2,
     api_key=settings.openai_api_key
 )
+
+def get_llm(provider: LLMProvider):
+    if provider == LLMProvider.OLLAMA:
+        return llm_ollama
+    elif provider == LLMProvider.OPENAI:
+        return llm_openai
+    else:
+        raise ValueError(f"Unsupported LLM provider: {provider}")

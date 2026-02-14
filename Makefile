@@ -16,7 +16,7 @@ run:
 
 bot:
 	@echo "Running the Telegram bot..."
-	python src/bot.py
+	python src/bot/app.py
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
