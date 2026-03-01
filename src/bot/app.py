@@ -11,16 +11,11 @@ from telegram.ext import (
     filters
 )
 
-from src.agent import quiz_agent
+from src.agents.quiz_agent import quiz_agent
 from src.scraper import Scraper
+from src.bot import handlers
 
 logger = get_logger(__name__)
-
-async def command_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Hello! 👋 I am your Telegram bot."
-    )
-
 
 async def command_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -74,7 +69,7 @@ def log_app_settings():
 def main():
     app = ApplicationBuilder().token(settings.telegram_bot_token).build()
 
-    app.add_handler(CommandHandler("start", command_start))
+    app.add_handler(CommandHandler("start", handlers.command_start))
     app.add_handler(CommandHandler("help", command_help))
     app.add_handler(CommandHandler("quiz", command_quiz))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
