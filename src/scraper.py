@@ -10,7 +10,7 @@ class Scraper:
         headers = {
             "User-Agent": "Mozilla/5.0"
         }
-        response = requests.get(url, headers=headers, verify=False)
+        response = requests.get(url, headers=headers)
         
         # Parse HTML
         soup = BeautifulSoup(response.text, "html.parser")

@@ -1,7 +1,7 @@
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 from src.settings import settings
-from src.types import LLMProvider
+from src.schemas import LLMProvider
 
 llm_ollama = ChatOllama(
     model="llama3.1:8b",

@@ -1,5 +1,5 @@
 from src.llms import get_llm
-from src.types import LLMProvider
+from src.schemas import LLMProvider
 from src.scraper import Scraper
 from src.prompts.extractor_prompts import SYSTEM_PROMPT, USER_PROMPT
 from pydantic import BaseModel, Field

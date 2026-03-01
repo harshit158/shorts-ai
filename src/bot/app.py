@@ -1,17 +1,20 @@
-import os
-from dotenv import load_dotenv
-load_dotenv()
 from src.quiz import generate_quiz
 from src.settings import settings
+from src.logging_setup import get_logger
 
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     ContextTypes,
-    CallbackQueryHandler,
-    ConversationHandler
+    MessageHandler,
+    filters
 )
+
+from src.agent import quiz_agent
+from src.scraper import Scraper
+
+logger = get_logger(__name__)
 
 async def command_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -27,44 +30,56 @@ async def command_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def command_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print("Running LLM for quiz command...")
+    logger.info("Received /quiz command from user")
+    
+    # Set state to wait for URL
+    context.user_data['waiting_for_url'] = True
     
     await update.message.reply_text(
-        "Generating a quiz question for you..."
+        "📎 Please share the URL you want to create a quiz from:"
     )
+
+async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Check if we're waiting for a URL
+    if not context.user_data.get('waiting_for_url'):
+        return
     
-    quiz_str = generate_quiz()
+    url = update.message.text
+    context.user_data['waiting_for_url'] = False
+    
     await update.message.reply_text(
-        quiz_str,
-        parse_mode="HTML"
+        "⏳ Generating a quiz question for you..."
     )
     
-# menu_conv = ConversationHandler(
-#     entry_points=[CommandHandler("menu", menu_start)],
-#     states={
-#         MenuStates.WAIT_INPUT_TYPE: [
-#             CallbackQueryHandler(input_type_selected),
-#         ],
-#         MenuStates.WAIT_MENU_CONTENT: [
-#             MessageHandler(filters.PHOTO, handle_menu_image),
-#             MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_text),
-#         ],
-#         MenuStates.SHOW_RESULTS: [
-#             CallbackQueryHandler(scan_again),
-#         ],
-#     },
-#     fallbacks=[CommandHandler("cancel", cancel_menu)],
-# )
+    try:
+        logger.info("Received URL: %s", url)
+        scraped_content = Scraper().scrape(url)
+        logger.info("Scraped content length: %d characters", len(scraped_content))
+        logger.info("Invoking quiz agent with scraped content")
+        quiz_str = "\n\n".join(quiz_agent.invoke({"context": scraped_content})["questions"])
+        
+        await update.message.reply_text(
+            quiz_str,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        await update.message.reply_text(
+            f"❌ Error generating quiz: {str(e)}"
+        )
 
-
+def log_app_settings():
+    logger.info("Application Settings:")
+    logger.info(f"Telegram Bot Token: {'SET' if settings.telegram_bot_token else 'NOT SET'}")
+    
 def main():
     app = ApplicationBuilder().token(settings.telegram_bot_token).build()
 
     app.add_handler(CommandHandler("start", command_start))
     app.add_handler(CommandHandler("help", command_help))
     app.add_handler(CommandHandler("quiz", command_quiz))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
 
-    print("Bot is running...")
+    log_app_settings()
     app.run_polling()
 
 

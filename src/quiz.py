@@ -1,4 +1,6 @@
 from src.llms import llm_openai
+from src.logging_setup import get_logger
+logger = get_logger(__name__)
 from pydantic import BaseModel, Field
 
 class Option(BaseModel):
@@ -23,7 +25,7 @@ class Quiz(BaseModel):
 
 def generate_quiz():
     """Generate a quiz question using the LLM."""
-    print("Using ", llm_openai.model_name, "to generate quiz")
+    logger.info("Using %s to generate quiz", llm_openai.model_name)
     messages = [
         (
             "system",

@@ -14,9 +14,10 @@ install:
 run:
 	python main.py
 
+# Run the Telegram bot
 bot:
 	@echo "Running the Telegram bot..."
-	python src/bot/app.py
+	python -m src.bot.app
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
