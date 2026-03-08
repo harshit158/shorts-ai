@@ -11,11 +11,21 @@ from telegram.ext import (
     filters
 )
 
+from time import sleep
+
 from src.agents.quiz_agent import quiz_agent
 from src.scraper import Scraper
 from src.bot import handlers
 
+from src.observability import init_observability
+from src.observability.tracing import get_tracer
+
+
+init_observability()
+
 logger = get_logger(__name__)
+
+tracer = get_tracer(__name__)
 
 async def command_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -63,17 +73,28 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 def log_app_settings():
-    logger.info("Application Settings:")
-    logger.info(f"Telegram Bot Token: {'SET' if settings.telegram_bot_token else 'NOT SET'}")
+    with tracer.start_as_current_span("log_app_settings"):
+        logger.info("Application Settings:")
+        logger.info(f"Telegram Bot Token: {'SET' if settings.telegram_bot_token else 'NOT SET'}")
+        logger.error(f"OpenAI API Key: {'SET' if settings.openai_api_key else 'NOT SET'}")
     
 def main():
+    with tracer.start_as_current_span("main"):
+        print("Starting bot")
+        
+        with tracer.start_as_current_span("sleeping1"):
+            sleep(5)
+        
+        with tracer.start_as_current_span("sleeping2"):
+            sleep(5)
+        
     app = ApplicationBuilder().token(settings.telegram_bot_token).build()
 
     app.add_handler(CommandHandler("start", handlers.command_start))
     app.add_handler(CommandHandler("help", command_help))
     app.add_handler(CommandHandler("quiz", command_quiz))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
-
+    
     log_app_settings()
     app.run_polling()
 

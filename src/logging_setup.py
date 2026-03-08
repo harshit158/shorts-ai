@@ -1,13 +1,15 @@
 import logging
 import logging.config
-import os
-# from pythonjsonlogger import jsonlogger
+from pythonjsonlogger.json import JsonFormatter
 
 from rich.console import Console
 from rich.logging import RichHandler
 
-console = Console(width=150)
-rich_handler = RichHandler(console=console)
+from opentelemetry import trace
+
+from src.settings import settings
+
+import logging_loki
 
 class AccessLogFilter(logging.Filter):
     """Custom logging filter to exclude certain endpoints from access logs."""
@@ -22,6 +24,17 @@ class AccessLogFilter(logging.Filter):
         Returns:
             bool: True if the log record should be processed, False otherwise.
         """
+        
+        # Inject OpenTelemetry trace/span ids
+        span = trace.get_current_span()
+        span_context = span.get_span_context()
+
+        if span_context and span_context.trace_id != 0:
+            record.trace_id = format(span_context.trace_id, "032x")
+            record.span_id = format(span_context.span_id, "016x")
+        else:
+            record.trace_id = None
+            record.span_id = None
 
         # Define the list of endpoints to exclude
         excluded_endpoints = ["/", "/favicon.ico", "/openapi.json"]
@@ -35,40 +48,58 @@ class AccessLogFilter(logging.Filter):
         # Allow logs for other levels
         return True
 
+def get_rich_handler():
+    console = Console(width=150)
+    rich_handler = RichHandler(console=console)
+    return rich_handler
+    
+def get_loki_handler():
+    loki_handler = logging_loki.LokiHandler(
+        url=settings.loki_url,
+        tags={"service_name": settings.app_name},
+        version="1"
+    )
+    return loki_handler
 
 # Create centralized logging configuration
 def setup_logging():
+    handlers = ["console", "loki"]
+    
     logging_config = {
         "version": 1,
         "disable_existing_loggers": True,
         "formatters": {
             "standard": {
                 "format": "%(asctime)s - %(name)s - %(message)s",
-                "datefmt": "%Y-%m-%d %H:%M:%S",
-                # "class": "pythonjsonlogger.jsonlogger.JsonFormatter",
+                "datefmt": "%Y-%m-%d %H:%M:%S"
             },
+            "json": {
+                "()": JsonFormatter,
+                "fmt": "%(asctime)s %(levelname)s %(name)s %(message)s %(trace_id)s %(span_id)s",
+            }
         },
         "handlers": {
             "console": {
-                "()": lambda: rich_handler,
-                "formatter": "standard",
+                "()": lambda: get_rich_handler(),
+                "formatter": "json",
+                "level": "INFO",
+                "filters": [AccessLogFilter()],
+            },
+            "loki": {
+                "()": lambda: get_loki_handler(),
+                "formatter": "json",
                 "level": "INFO",
                 "filters": [AccessLogFilter()],
             }
         },
         "loggers": {
             "": {  # root logger
-                "handlers": ["console"],
+                "handlers": handlers,
                 "level": "INFO",
                 "propagate": False,
             },
-            # "services.backend": {
-            #     "handlers": ["console"],
-            #     "level": "DEBUG",
-            #     "propagate": False,
-            # },
-            "uvicorn.error": {"handlers": ["console"], "level": "WARNING", "propagate": False},
-            "uvicorn.access": {"handlers": ["console"], "level": "INFO", "propagate": False},
+            "uvicorn.error": {"handlers": handlers, "level": "WARNING", "propagate": False},
+            "uvicorn.access": {"handlers": handlers, "level": "INFO", "propagate": False},
         },
     }
 

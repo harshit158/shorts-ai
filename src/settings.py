@@ -1,8 +1,13 @@
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
+    app_name: str
     telegram_bot_token: str
     openai_api_key: str
+    
+    # observability
+    otel_exporter_otlp_endpoint: str
+    loki_url: str
 
     class Config:
         env_file = ".env"
